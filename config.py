@@ -1,29 +1,33 @@
 import json
 import os
+from typing import Any, Dict, Optional
 
-DEFAULT_CONFIG = {
-    'setting1': 'value1',
-    'setting2': 2,
-    'setting3': True
-}
+class ConfigurationLoader:
+    def __init__(self, defaults: Optional[Dict[str, Any]] = None) -> None:
+        self.defaults = defaults or {}
+        self.config = self.defaults.copy()
 
-class ConfigLoader:
-    def __init__(self, config_file=None):
-        self.config = DEFAULT_CONFIG.copy()
-        if config_file and os.path.isfile(config_file):
-            self.load_config(config_file)
+    def load_from_file(self, path: str) -> None:
+        if os.path.isfile(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                self.config.update(data)
 
-    def load_config(self, config_file):
-        with open(config_file, 'r') as f:
-            user_config = json.load(f)
-            self.config.update(user_config)
+    def load_from_env(self, prefix: str = 'APP_') -> None:
+        for key, value in list(os.environ.items()):
+            if key.startswith(prefix):
+                clean_key = key[len(prefix):].lower()
+                self.config[clean_key] = value
 
-    def get(self, key, default=None):
+    def get(self, key: str, default: Optional[Any] = None) -> Any:
         return self.config.get(key, default)
 
-    def set(self, key, value):
-        self.config[key] = value
+    def get_all(self) -> Dict[str, Any]:
+        return dict(self.config)
 
-    def save(self, config_file):
-        with open(config_file, 'w') as f:
-            json.dump(self.config, f, indent=4)
+    def merge(self, other: Dict[str, Any]) -> None:
+        self.config.update(other)
+
+    def reset(self) -> None:
+        self.config = self.defaults.copy()
