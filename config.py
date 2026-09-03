@@ -1,58 +1,54 @@
 import json
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Union
 
-class AutomationConfig:
-    """Holds configuration settings for automation-tool-82."""
+DEFAULT_CONFIG: Dict[str, Any] = {
+    "timeout": 30,
+    "retry_limit": 3,
+    "log_level": "INFO",
+    "enable_notifications": False,
+    "api_url": "https://api.example.com/v1",
+}
 
-    def __init__(self, settings: Optional[Dict[str, Any]] = None) -> None:
-        """Initialize with default or provided settings."""
-        self._settings: Dict[str, Any] = {
-            "max_retries": 3,
-            "timeout": 60,
-            "log_level": "INFO",
-            "output_dir": "./output",
-        }
-        if settings:
-            self._settings.update(settings)
+
+class Config:
+    def __init__(self, config_path: Union[str, None] = None):
+        self._config = DEFAULT_CONFIG.copy()
+        if config_path and os.path.exists(config_path):
+            self.load_from_file(config_path)
+        self._load_from_env()
+
+    def load_from_file(self, config_path: str) -> None:
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    self._config.update(data)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    def _load_from_env(self) -> None:
+        for key in self._config:
+            env_key = f"AUTO_TOOL_{key.upper()}"
+            if env_key in os.environ:
+                val = os.environ[env_key]
+                self._config[key] = self._parse_env_val(val, type(self._config[key]))
+
+    @staticmethod
+    def _parse_env_val(val: str, expected_type: type) -> Any:
+        if expected_type is bool:
+            return val.lower() in ("true", "1", "yes")
+        if expected_type is int:
+            try:
+                return int(val)
+            except ValueError:
+                return val
+        return val
 
     def get(self, key: str, default: Any = None) -> Any:
-        """Retrieve config value for key."""
-        return self._settings.get(key, default)
+        return self._config.get(key, default)
 
-    def set(self, key: str, value: Any) -> None:
-        """Update config value for key."""
-        self._settings[key] = value
-
-    def load_from_file(self, filepath: str) -> None:
-        """Load settings from JSON file at filepath."""
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(f"Config file not found: {filepath}")
-        with open(filepath, "r", encoding="utf-8") as f:
-            data: Dict[str, Any] = json.load(f)
-        self._settings.update(data)
-
-    def save_to_file(self, filepath: str) -> None:
-        """Save settings to JSON file at filepath."""
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(self._settings, f, indent=4)
-
-    def get_all(self) -> Dict[str, Any]:
-        """Return copy of all settings."""
-        return self._settings.copy()
-
-    def validate(self) -> bool:
-        """Validate key settings are positive."""
-        if self.get("max_retries") < 0 or self.get("timeout") <= 0:
-            return False
-        return True
-
-def create_default_config() -> AutomationConfig:
-    """Return default AutomationConfig instance."""
-    return AutomationConfig()
-
-def merge_configs(base: AutomationConfig, override: Dict[str, Any]) -> AutomationConfig:
-    """Return new config merging override into base."""
-    new_settings = base.get_all()
-    new_settings.update(override)
-    return AutomationConfig(new_settings)
+    def __getattr__(self, name: str) -> Any:
+        if name in self._config:
+            return self._config[name]
+        raise AttributeError(f"'Config' object has no attribute '{name}'")
