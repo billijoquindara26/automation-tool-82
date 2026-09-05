@@ -1,19 +1,9 @@
-import json
-from typing import Any, Dict, Optional
-from pathlib import Path
+from typing import Any, Dict, Mapping
 
-def load_json(file_path: str) -> Dict[str, Any]:
-    path = Path(file_path)
-    if not path.exists():
-        return {}
-    with open(path, 'r', encoding='utf-8') as f:
-        return json.load(f)
 
-def save_json(data: Dict[str, Any], file_path: str) -> None:
-    with open(file_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4, sort_keys=True)
-
-def flatten_dict(d: Dict[str, Any], parent_key: str = '', sep: str = '_') -> Dict[str, Any]:
+def flatten_dict(
+    d: Mapping[str, Any], parent_key: str = "", sep: str = "."
+) -> Dict[str, Any]:
     items = []
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
@@ -23,11 +13,16 @@ def flatten_dict(d: Dict[str, Any], parent_key: str = '', sep: str = '_') -> Dic
             items.append((new_key, v))
     return dict(items)
 
-def get_nested(data: Dict[str, Any], path: str, default: Any = None) -> Any:
-    keys = path.split('.')
-    for key in keys:
-        if isinstance(data, dict):
-            data = data.get(key, default)
+
+def deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
+    result = dict1.copy()
+    for key, value in dict2.items():
+        if (
+            key in result
+            and isinstance(result[key], dict)
+            and isinstance(value, dict)
+        ):
+            result[key] = deep_merge(result[key], value)
         else:
-            return default
-    return data
+            result[key] = value
+    return result
