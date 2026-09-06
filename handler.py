@@ -1,33 +1,32 @@
-import functools
-from typing import Any, Callable, Dict
+import sys
 
-CACHE: Dict[tuple, Any] = {}
+def validate_input(data):
+    if not isinstance(data, dict):
+        return False
+    if 'id' not in data or not isinstance(data['id'], int):
+        return False
+    if 'payload' not in data or not isinstance(data['payload'], str):
+        return False
+    return True
 
-def memoize(func: Callable) -> Callable:
-    @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        key = (func.__name__, args, frozenset(kwargs.items()))
-        if key not in CACHE:
-            CACHE[key] = func(*args, **kwargs)
-        return CACHE[key]
-    return wrapper
+def process_stream(input_data):
+    for entry in input_data:
+        if not validate_input(entry):
+            print(f'invalid data format: {entry}', file=sys.stderr)
+            continue
+        
+        try:
+            execute_task(entry)
+        except Exception as e:
+            print(f'execution failure: {e}', file=sys.stderr)
 
-class DataHandler:
-    def __init__(self, data: list):
-        self._data = data
-
-    @memoize
-    def process_heavy_computation(self, factor: int) -> list:
-        return [x * factor for x in self._data]
-
-    def clear_cache(self) -> None:
-        CACHE.clear()
-
-    def execute(self, factor: int) -> list:
-        if not self._data:
-            return []
-        return self.process_heavy_computation(factor)
+def execute_task(data):
+    print(f'processing item {data["id"]}')
 
 if __name__ == '__main__':
-    handler = DataHandler(list(range(1000)))
-    result = handler.execute(10)
+    sample_data = [
+        {'id': 1, 'payload': 'task_alpha'},
+        {'id': 'invalid', 'payload': 'fail'},
+        {'id': 2, 'payload': 'task_beta'}
+    ]
+    process_stream(sample_data)
