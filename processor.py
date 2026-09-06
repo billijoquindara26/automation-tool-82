@@ -1,28 +1,34 @@
-import functools
-from typing import Any, Callable, Dict
+import os
+from pathlib import Path
+from typing import List
 
 class DataProcessor:
-    def __init__(self) -> None:
-        self._cache: Dict[tuple, Any] = {}
+    def __init__(self, target_dir: str):
+        self.target_dir = Path(target_dir)
 
-    @functools.lru_cache(maxsize=128)
-    def _expensive_computation(self, data: tuple) -> Any:
-        result = sum(i * i for i in range(len(data)))
-        return result
+    def get_files(self) -> List[Path]:
+        if not self.target_dir.exists():
+            return []
+        return [f for f in self.target_dir.iterdir() if f.is_file()]
 
-    def process_batch(self, batch: list) -> list:
-        return [self._expensive_computation(tuple(item)) for item in batch]
+    def purge_temporary_files(self, extension: str = '.tmp') -> int:
+        count = 0
+        for file_path in self.get_files():
+            if file_path.suffix == extension:
+                try:
+                    file_path.unlink()
+                    count += 1
+                except OSError:
+                    continue
+        return count
 
-    def optimized_stream(self, data_stream: list) -> list:
-        return list(map(self._expensive_computation, (tuple(i) for i in data_stream)))
+    def organize_by_extension(self) -> None:
+        for file_path in self.get_files():
+            subdir = self.target_dir / file_path.suffix.lstrip('.')
+            subdir.mkdir(exist_ok=True)
+            file_path.rename(subdir / file_path.name)
 
-def memoized_wrapper(func: Callable) -> Callable:
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        key = (args, frozenset(kwargs.items()))
-        if key not in _internal_cache:
-            _internal_cache[key] = func(*args, **kwargs)
-        return _internal_cache[key]
-    return wrapper
-
-_internal_cache: Dict[tuple, Any] = {}
+def run_cleanup(path: str) -> None:
+    processor = DataProcessor(path)
+    processor.purge_temporary_files()
+    processor.organize_by_extension()
