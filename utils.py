@@ -1,25 +1,31 @@
-import time
-import functools
-import logging
-from typing import Callable, Any
+import json
+from typing import Any, Dict, Optional
 
-logger = logging.getLogger(__name__)
+def load_json_file(path: str) -> Dict[str, Any]:
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
 
-def retry(max_retries: int = 3, delay: float = 1.0, exceptions: tuple = (Exception,)):
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            last_exception = None
-            for attempt in range(max_retries):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    last_exception = e
-                    logger.warning(
-                        f"Attempt {attempt + 1} failed: {e}. "
-                        f"Retrying in {delay} seconds..."
-                    )
-                    time.sleep(delay)
-            raise last_exception
-        return wrapper
-    return decorator
+def save_json_file(path: str, data: Dict[str, Any]) -> bool:
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4)
+        return True
+    except IOError:
+        return False
+
+def clean_dict(data: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: v for k, v in data.items() if v is not None}
+
+def format_data(data: Any, indent: int = 2) -> str:
+    return json.dumps(data, indent=indent)
+
+def get_nested_key(data: Dict[str, Any], keys: list) -> Optional[Any]:
+    for key in keys:
+        if isinstance(data, dict):
+            data = data.get(key)
+        else:
+            return None
+    return data
