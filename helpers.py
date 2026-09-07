@@ -1,35 +1,35 @@
-import json
 import os
 import shutil
+from typing import List, Optional
 from pathlib import Path
-from typing import Any, Optional
 
-def read_json(path: str) -> dict:
-    with open(path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+def clean_directory(target: str, extensions: Optional[List[str]] = None) -> None:
+    path = Path(target)
+    if not path.is_dir():
+        raise ValueError(f'Invalid directory: {target}')
 
-def write_json(data: Any, path: str) -> None:
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4)
+    for item in path.iterdir():
+        if extensions and item.suffix not in extensions:
+            continue
+        if item.is_file():
+            item.unlink()
+        elif item.is_dir():
+            shutil.rmtree(item)
 
-def ensure_directory(path: str) -> None:
-    Path(path).mkdir(parents=True, exist_ok=True)
+def ensure_paths(paths: List[str]) -> None:
+    for p in paths:
+        Path(p).mkdir(parents=True, exist_ok=True)
 
-def safe_remove(path: str) -> bool:
-    try:
-        if os.path.isfile(path):
-            os.remove(path)
-        elif os.path.isdir(path):
-            shutil.rmtree(path)
-        return True
-    except OSError:
-        return False
+def get_file_stats(target: str) -> dict:
+    path = Path(target)
+    if not path.exists():
+        return {}
+    return {
+        'size': path.stat().st_size,
+        'modified': path.stat().st_mtime
+    }
 
-def get_env_var(key: str, default: Optional[str] = None) -> str:
-    return os.getenv(key, default or '')
-
-def list_files_by_extension(directory: str, ext: str) -> list[str]:
-    return [str(f) for f in Path(directory).glob(f'*.{ext}')]
-
-def chunk_list(data: list, size: int) -> list[list]:
-    return [data[i:i + size] for i in range(0, len(data), size)]
+def archive_data(source: str, destination: str) -> None:
+    if not os.path.exists(destination):
+        os.makedirs(destination)
+    shutil.make_archive(str(Path(destination) / 'backup'), 'zip', source)
