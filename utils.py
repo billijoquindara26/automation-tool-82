@@ -1,28 +1,25 @@
-from typing import Any, Dict, Mapping
+import time
+import functools
+import logging
+from typing import Callable, Any
 
+logger = logging.getLogger(__name__)
 
-def flatten_dict(
-    d: Mapping[str, Any], parent_key: str = "", sep: str = "."
-) -> Dict[str, Any]:
-    items = []
-    for k, v in d.items():
-        new_key = f"{parent_key}{sep}{k}" if parent_key else k
-        if isinstance(v, dict):
-            items.extend(flatten_dict(v, new_key, sep=sep).items())
-        else:
-            items.append((new_key, v))
-    return dict(items)
-
-
-def deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
-    result = dict1.copy()
-    for key, value in dict2.items():
-        if (
-            key in result
-            and isinstance(result[key], dict)
-            and isinstance(value, dict)
-        ):
-            result[key] = deep_merge(result[key], value)
-        else:
-            result[key] = value
-    return result
+def retry(max_retries: int = 3, delay: float = 1.0, exceptions: tuple = (Exception,)):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    logger.warning(
+                        f"Attempt {attempt + 1} failed: {e}. "
+                        f"Retrying in {delay} seconds..."
+                    )
+                    time.sleep(delay)
+            raise last_exception
+        return wrapper
+    return decorator
