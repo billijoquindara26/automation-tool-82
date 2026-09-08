@@ -1,56 +1,27 @@
-import pathlib
 import re
-from urllib.parse import urlparse
+from typing import Any, Optional
 
-EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+class DataValidator:
+    EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$')
 
+    @staticmethod
+    def is_valid_email(email: str) -> bool:
+        return bool(DataValidator.EMAIL_REGEX.match(email))
 
-def is_valid_email(email: str) -> bool:
-    """Check if the provided string is a syntactically valid email address.
+    @staticmethod
+    def is_non_empty_string(value: Any) -> bool:
+        return isinstance(value, str) and len(value.strip()) > 0
 
-    Args:
-        email: The email string to validate.
-
-    Returns:
-        True if valid, False otherwise.
-    """
-    if not email:
-        return False
-    return bool(EMAIL_REGEX.match(email))
-
-
-def is_valid_url(url: str) -> bool:
-    """Verify that a string is a valid HTTP or HTTPS URL.
-
-    Args:
-        url: The URL string to validate.
-
-    Returns:
-        True if valid, False otherwise.
-    """
-    try:
-        parsed = urlparse(url)
-        return all([parsed.scheme in ('http', 'https'), parsed.netloc])
-    except ValueError:
-        return False
-
-
-def is_valid_filepath(path_str: str, must_exist: bool = False) -> bool:
-    """Validate a filepath and optionally check if it exists on disk.
-
-    Args:
-        path_str: The filesystem path string to validate.
-        must_exist: If True, the file must physically exist.
-
-    Returns:
-        True if the path is valid and matches the criteria, False otherwise.
-    """
-    if not path_str:
-        return False
-    try:
-        path = pathlib.Path(path_str)
-        if must_exist:
-            return path.is_file()
+    @staticmethod
+    def validate_payload(data: dict, schema: dict) -> bool:
+        for key, expected_type in schema.items():
+            if key not in data or not isinstance(data[key], expected_type):
+                return False
         return True
-    except (TypeError, ValueError):
-        return False
+
+def validate_config_value(value: Optional[Any], validator_func: callable) -> Any:
+    if value is None:
+        raise ValueError('Configuration value cannot be None')
+    if not validator_func(value):
+        raise ValueError(f'Validation failed for value: {value}')
+    return value
