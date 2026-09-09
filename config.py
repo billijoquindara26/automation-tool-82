@@ -1,32 +1,38 @@
-import json
 import os
+import json
+from dataclasses import dataclass, field
 from typing import Any, Dict
 
-DEFAULT_CONFIG = {
-    "retries": 3,
-    "timeout": 30,
-    "log_level": "INFO",
-    "enabled": True
-}
+@dataclass
+class AppConfig:
+    """Configuration schema for the automation tool."""
+    env: str = "development"
+    debug: bool = False
+    timeout: int = 30
+    api_keys: Dict[str, str] = field(default_factory=dict)
 
-class ConfigLoader:
-    def __init__(self, filepath: str = "config.json"):
-        self.filepath = filepath
-        self.settings = DEFAULT_CONFIG.copy()
-        self._load_file()
-
-    def _load_file(self) -> None:
-        if os.path.exists(self.filepath):
+    def load_from_env(self) -> None:
+        """Override configuration values using environment variables."""
+        self.env = os.getenv("APP_ENV", self.env)
+        self.debug = os.getenv("APP_DEBUG", str(self.debug)).lower() in ("true", "1", "t")
+        self.timeout = int(os.getenv("APP_TIMEOUT", str(self.timeout)))
+        
+        api_keys_raw = os.getenv("APP_API_KEYS")
+        if api_keys_raw:
             try:
-                with open(self.filepath, "r") as f:
-                    user_config = json.load(f)
-                    self.settings.update(user_config)
-            except (json.JSONDecodeError, IOError):
+                self.api_keys = json.loads(api_keys_raw)
+            except json.JSONDecodeError:
                 pass
 
-    def get(self, key: str, default: Any = None) -> Any:
-        return self.settings.get(key, default)
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the configuration state to a dictionary.
 
-    @property
-    def all(self) -> Dict[str, Any]:
-        return self.settings.copy()
+        Returns:
+            Dict[str, Any]: The configuration dictionary.
+        """
+        return {
+            "env": self.env,
+            "debug": self.debug,
+            "timeout": self.timeout,
+            "api_keys": self.api_keys,
+        }
