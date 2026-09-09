@@ -1,32 +1,25 @@
-import sys
+import time
+import functools
+from typing import Callable, Any
 
-def validate_input(data):
-    if not isinstance(data, dict):
-        return False
-    if 'id' not in data or not isinstance(data['id'], int):
-        return False
-    if 'payload' not in data or not isinstance(data['payload'], str):
-        return False
-    return True
+def retry(max_retries: int = 3, delay: float = 1.0) -> Callable:
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    last_exception = e
+                    time.sleep(delay * (2 ** attempt))
+            raise last_exception
+        return wrapper
+    return decorator
 
-def process_stream(input_data):
-    for entry in input_data:
-        if not validate_input(entry):
-            print(f'invalid data format: {entry}', file=sys.stderr)
-            continue
-        
-        try:
-            execute_task(entry)
-        except Exception as e:
-            print(f'execution failure: {e}', file=sys.stderr)
-
-def execute_task(data):
-    print(f'processing item {data["id"]}')
-
-if __name__ == '__main__':
-    sample_data = [
-        {'id': 1, 'payload': 'task_alpha'},
-        {'id': 'invalid', 'payload': 'fail'},
-        {'id': 2, 'payload': 'task_beta'}
-    ]
-    process_stream(sample_data)
+@retry(max_retries=3, delay=2.0)
+def fetch_data(url: str) -> dict:
+    import requests
+    response = requests.get(url, timeout=5)
+    response.raise_for_status()
+    return response.json()
