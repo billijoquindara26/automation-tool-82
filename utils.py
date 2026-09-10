@@ -1,31 +1,29 @@
 import json
 from typing import Any, Dict, Optional
 
-def load_json_file(path: str) -> Dict[str, Any]:
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
+def load_json_file(file_path: str) -> Dict[str, Any]:
+    with open(file_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
 
-def save_json_file(path: str, data: Dict[str, Any]) -> bool:
-    try:
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4)
-        return True
-    except IOError:
-        return False
+def save_json_file(file_path: str, data: Dict[str, Any]) -> None:
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=4)
 
-def clean_dict(data: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: v for k, v in data.items() if v is not None}
-
-def format_data(data: Any, indent: int = 2) -> str:
-    return json.dumps(data, indent=indent)
-
-def get_nested_key(data: Dict[str, Any], keys: list) -> Optional[Any]:
-    for key in keys:
-        if isinstance(data, dict):
-            data = data.get(key)
+def flatten_dict(d: Dict[str, Any], parent_key: str = '', sep: str = '_') -> Dict[str, Any]:
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
         else:
-            return None
-    return data
+            items.append((new_key, v))
+    return dict(items)
+
+def safe_get(data: Dict[str, Any], keys: str, default: Any = None) -> Any:
+    curr = data
+    for key in keys.split('.'):
+        if isinstance(curr, dict):
+            curr = curr.get(key)
+        else:
+            return default
+    return curr if curr is not None else default
