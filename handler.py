@@ -1,27 +1,34 @@
-import logging
+import json
 from typing import Any, Dict, Optional
 
-logger = logging.getLogger(__name__)
+def load_json_file(path: str) -> Dict[str, Any]:
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
 
-class AutomationHandler:
-    def __init__(self, config: Dict[str, Any]):
-        self.config = config
-        self.is_active = True
+def save_json_file(path: str, data: Dict[str, Any]) -> bool:
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4)
+        return True
+    except IOError:
+        return False
 
-    def process_event(self, event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        if not self.is_active:
-            return None
+def clean_data(data: Any) -> Any:
+    if isinstance(data, dict):
+        return {k: clean_data(v) for k, v in data.items() if v is not None}
+    if isinstance(data, list):
+        return [clean_data(item) for item in data if item is not None]
+    return data
 
-        try:
-            payload = event.get('data', {})
-            return self._execute(payload)
-        except Exception as e:
-            logger.error(f"execution error: {e}")
-            return None
-
-    def _execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        return {"status": "success", "processed": bool(data)}
-
-    def shutdown(self) -> None:
-        self.is_active = False
-        logger.info("handler shutdown complete")
+def get_nested(data: Dict[str, Any], key_path: str, default: Any = None) -> Any:
+    keys = key_path.split('.')
+    val = data
+    try:
+        for key in keys:
+            val = val[key]
+        return val if val is not None else default
+    except (KeyError, TypeError):
+        return default
