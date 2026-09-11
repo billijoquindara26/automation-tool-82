@@ -1,27 +1,37 @@
 import re
-from typing import Any, Optional
+from typing import Any, Dict, Type
 
-class DataValidator:
-    EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$')
 
-    @staticmethod
-    def is_valid_email(email: str) -> bool:
-        return bool(DataValidator.EMAIL_REGEX.match(email))
+def is_valid_email(email: str) -> bool:
+    if not isinstance(email, str):
+        return False
+    pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+    return bool(re.match(pattern, email))
 
-    @staticmethod
-    def is_non_empty_string(value: Any) -> bool:
-        return isinstance(value, str) and len(value.strip()) > 0
 
-    @staticmethod
-    def validate_payload(data: dict, schema: dict) -> bool:
-        for key, expected_type in schema.items():
-            if key not in data or not isinstance(data[key], expected_type):
-                return False
-        return True
+def is_valid_ip(ip: str) -> bool:
+    if not isinstance(ip, str):
+        return False
+    parts = ip.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        return all(0 <= int(part) <= 255 for part in parts)
+    except ValueError:
+        return False
 
-def validate_config_value(value: Optional[Any], validator_func: callable) -> Any:
-    if value is None:
-        raise ValueError('Configuration value cannot be None')
-    if not validator_func(value):
-        raise ValueError(f'Validation failed for value: {value}')
-    return value
+
+def safe_cast_int(val: Any, default: int = 0) -> int:
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return default
+
+
+def validate_dict_schema(data: Dict[str, Any], schema: Dict[str, Type]) -> bool:
+    if not isinstance(data, dict) or not isinstance(schema, dict):
+        return False
+    for key, expected_type in schema.items():
+        if key not in data or not isinstance(data[key], expected_type):
+            return False
+    return True
